@@ -1,0 +1,22 @@
+{
+  "seed": 907,
+  "meters": 3000,
+  "days": 180,
+  "startDate": "2026-04-01",
+  "monthEndSqueeze": 0.45,
+  "shockProb": 0.035,
+  "arrearsShare": 0.12,
+  "arrearsCut": 0.2,
+  "mix": { "daily": 34, "weekly": 24, "salaried": 8, "lowuser": 10, "vacant": 5, "tenant": 6, "mixeduse": 5, "bypass": 4, "traveller": 4 },
+  "types": {
+    "daily": { "pay": "daily", "workProb": 0.72, "income": 360, "share": 0.05, "useKwh": 0.75, "ration": 0.65, "vulnerable": true },
+    "weekly": { "pay": "weekly", "income": 2600, "share": 0.05, "useKwh": 0.85, "ration": 0.7, "vulnerable": true },
+    "salaried": { "pay": "monthly", "income": 26000, "share": 0.05, "useKwh": 1.3, "ration": 0.95, "vulnerable": false },
+    "lowuser": { "pay": "weekly", "income": 1500, "share": 0.02, "useKwh": 0.1, "ration": 1, "vulnerable": false },
+    "vacant": { "pay": "weekly", "income": 3000, "share": 0.05, "useKwh": 0.8, "ration": 0.85, "vulnerable": false },
+    "tenant": { "pay": "weekly", "income": 2800, "share": 0.05, "useKwh": 0.9, "ration": 0.8, "vulnerable": false },
+    "mixeduse": { "pay": "daily", "workProb": 0.8, "income": 850, "share": 0.09, "useKwh": 2.8, "ration": 0.85, "vulnerable": false },
+    "bypass": { "pay": "weekly", "income": 3300, "share": 0.05, "useKwh": 1, "ration": 1, "vulnerable": false },
+    "traveller": { "pay": "weekly", "income": 3800, "share": 0.05, "useKwh": 1, "ration": 0.85, "vulnerable": false }
+  }
+}

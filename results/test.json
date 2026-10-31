@@ -1,0 +1,108 @@
+{
+  "note": "Synthetic held-out test set. A test of method only, not an estimate of real Kenyan dark days.",
+  "params": {
+    "minDarkDays": 0.5,
+    "maxGapDays": 21,
+    "lowUseKwhPerDay": 0.2,
+    "burnMargin": 1,
+    "burnQuantile": 0.8,
+    "mixedUseKwhPerDay": 2.2
+  },
+  "detector": {
+    "day": {
+      "precision": 0.7328691607134766,
+      "recall": 0.7454450486988048,
+      "f1": 0.7391036137237729
+    },
+    "episode": {
+      "precision": 0.7310121031398,
+      "recall": 0.6769079915018794,
+      "f1": 0.7029204801936748
+    },
+    "darkDaysPerMeterMonth": {
+      "actual": 3.6163333333333334,
+      "estimated": 3.678388888888889
+    },
+    "byKind": {
+      "weekly": {
+        "meters": 683,
+        "trueDays": 16385,
+        "predictedDays": 16169,
+        "truePositiveDays": 12474
+      },
+      "salaried": {
+        "meters": 229,
+        "trueDays": 4193,
+        "predictedDays": 3328,
+        "truePositiveDays": 2837
+      },
+      "tenant": {
+        "meters": 187,
+        "trueDays": 3527,
+        "predictedDays": 3049,
+        "truePositiveDays": 2020
+      },
+      "lowuser": {
+        "meters": 322,
+        "trueDays": 2271,
+        "predictedDays": 145,
+        "truePositiveDays": 118
+      },
+      "daily": {
+        "meters": 1050,
+        "trueDays": 27211,
+        "predictedDays": 32402,
+        "truePositiveDays": 22744
+      },
+      "bypass": {
+        "meters": 118,
+        "trueDays": 1690,
+        "predictedDays": 1140,
+        "truePositiveDays": 1053
+      },
+      "vacant": {
+        "meters": 153,
+        "trueDays": 2117,
+        "predictedDays": 1682,
+        "truePositiveDays": 1415
+      },
+      "mixeduse": {
+        "meters": 136,
+        "trueDays": 5292,
+        "predictedDays": 5519,
+        "truePositiveDays": 4061
+      },
+      "traveller": {
+        "meters": 122,
+        "trueDays": 2408,
+        "predictedDays": 2777,
+        "truePositiveDays": 1802
+      }
+    }
+  },
+  "hevs": {
+    "tiers": {
+      "Priority": {
+        "meters": 1226,
+        "highNeed": 1149,
+        "vulnerable": 897
+      },
+      "Stable": {
+        "meters": 727,
+        "highNeed": 21,
+        "vulnerable": 387
+      },
+      "Watch": {
+        "meters": 689,
+        "highNeed": 249,
+        "vulnerable": 438
+      },
+      "Review": {
+        "meters": 358,
+        "highNeed": 59,
+        "vulnerable": 11
+      }
+    },
+    "highNeedFoundInPriority": 0.7774018944519621
+  }
+}

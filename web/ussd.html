@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stima Bridge USSD</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <p class="eyebrow">STIMA BRIDGE</p>
+    <h1>USSD prototype</h1>
+  </div>
+  <a class="navlink" href="index.html">Open dashboard</a>
+</header>
+<p class="banner">Demo only. It is not connected to Kenya Power or a mobile network, and its tokens do not work on real meters.</p>
+
+<main class="ussd">
+  <div class="phone">
+    <div id="screen" class="screen" role="status" aria-live="polite"></div>
+    <form id="form" class="reply">
+      <label for="reply" hidden>Reply</label>
+      <input id="reply" type="text" inputmode="numeric" autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+  <div class="side">
+    <div class="panel">
+      <h2>Try it</h2>
+      <p class="hint">Enter 00, then join with example details. Phone 0712345678, meter 37194820016, ID 12345678.</p>
+      <div class="actions">
+        <button id="dial" type="button">Dial *977#</button>
+        <button id="buy" class="ghost" type="button">Buy KSh 100 token</button>
+        <button id="reset" class="ghost" type="button">Start over</button>
+      </div>
+      <p id="buyNote" class="hint" role="status"></p>
+    </div>
+    <div class="panel">
+      <h2>Account</h2>
+      <dl id="account"></dl>
+    </div>
+    <div class="panel">
+      <h2>SMS received</h2>
+      <div id="sms" class="sms"></div>
+    </div>
+  </div>
+</main>
+<script type="module" src="ussd.js"></script>
+</body>
+</html>

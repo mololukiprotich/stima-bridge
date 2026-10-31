@@ -1,0 +1,8 @@
+{
+  "minDarkDays": 0.5,
+  "maxGapDays": 21,
+  "lowUseKwhPerDay": 0.2,
+  "burnMargin": 1,
+  "burnQuantile": 0.8,
+  "mixedUseKwhPerDay": 2.2
+}

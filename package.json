@@ -1,0 +1,14 @@
+{
+  "name": "stima-bridge",
+  "version": "0.1.0",
+  "description": "Prepaid electricity dark-day detection and token advance prototype for Global Energy Hackathon Brief 09",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "tune": "node scripts/tune.mjs",
+    "evaluate": "node scripts/evaluate.mjs",
+    "serve": "node scripts/serve.mjs",
+    "test": "node --test tests/core.test.js"
+  }
+}

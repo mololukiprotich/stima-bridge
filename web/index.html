@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stima Bridge Dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <p class="eyebrow">STIMA BRIDGE</p>
+    <h1>Dark Days dashboard</h1>
+  </div>
+  <a class="navlink" href="ussd.html">Open USSD prototype</a>
+</header>
+<p class="banner">Prototype using synthetic data. These figures are not real Kenyan households.</p>
+
+<section class="controls">
+  <div class="panel">
+    <h2>1. Upload purchases</h2>
+    <p class="hint">CSV columns: meter_id, datetime, amount_ksh, kwh</p>
+    <input id="file" type="file" accept=".csv">
+    <button id="sample" type="button">Use sample data</button>
+    <p id="status" class="hint" role="status"></p>
+  </div>
+  <div class="panel">
+    <h2>2. Enter settings</h2>
+    <div class="fields">
+      <label for="minDark">Shortest dark period (days)</label>
+      <input id="minDark" type="number" min="0.25" max="3" step="0.25">
+      <label for="maxGap">Treat gaps above this as away (days)</label>
+      <input id="maxGap" type="number" min="7" max="90" step="1">
+      <label for="priority">HEVS Priority cutoff</label>
+      <input id="priority" type="number" min="1" max="100" step="1">
+    </div>
+  </div>
+  <div class="panel">
+    <h2>3. Find a meter</h2>
+    <label for="search">Meter number</label>
+    <input id="search" type="text" inputmode="numeric" autocomplete="off">
+    <p id="searchNote" class="hint"></p>
+  </div>
+</section>
+
+<section id="summary" class="stats" aria-label="Summary"></section>
+
+<section class="two">
+  <div class="panel">
+    <h2>Need tiers</h2>
+    <p class="hint">Priority households are offered Stima Bridge first. HEVS does not decide who may borrow.</p>
+    <div id="tiers"></div>
+  </div>
+  <div class="panel">
+    <h2>Detector test result</h2>
+    <div id="accuracy"></div>
+  </div>
+</section>
+
+<section class="panel" id="detailPanel" hidden>
+  <h2 id="detailTitle"></h2>
+  <p id="detailText" class="hint"></p>
+  <div id="timeline"></div>
+  <p class="legend"><span class="key buy"></span> Token bought <span class="key dark"></span> Estimated dark period</p>
+</section>
+
+<section class="panel">
+  <h2>Households by need</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Meter</th><th>HEVS</th><th>Tier</th><th>Dark days a month</th><th>Likely range</th><th>Why</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <p id="tableNote" class="hint"></p>
+</section>
+<script type="module" src="dashboard.js"></script>
+</body>
+</html>

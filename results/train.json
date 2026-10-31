@@ -1,0 +1,72 @@
+{
+  "day": {
+    "precision": 0.7031869501189443,
+    "recall": 0.7568122244122488,
+    "f1": 0.7290147682009024
+  },
+  "episode": {
+    "precision": 0.7048767231582588,
+    "recall": 0.6757232584697374,
+    "f1": 0.6899921809796308
+  },
+  "darkDaysPerMeterMonth": {
+    "actual": 2.7340555555555555,
+    "estimated": 2.942555555555556
+  },
+  "byKind": {
+    "daily": {
+      "meters": 1220,
+      "trueDays": 21824,
+      "predictedDays": 27123,
+      "truePositiveDays": 17524
+    },
+    "weekly": {
+      "meters": 628,
+      "trueDays": 13729,
+      "predictedDays": 12765,
+      "truePositiveDays": 10306
+    },
+    "salaried": {
+      "meters": 355,
+      "trueDays": 4602,
+      "predictedDays": 4082,
+      "truePositiveDays": 3287
+    },
+    "lowuser": {
+      "meters": 243,
+      "trueDays": 302,
+      "predictedDays": 29,
+      "truePositiveDays": 12
+    },
+    "vacant": {
+      "meters": 105,
+      "trueDays": 1295,
+      "predictedDays": 1034,
+      "truePositiveDays": 887
+    },
+    "tenant": {
+      "meters": 149,
+      "trueDays": 2194,
+      "predictedDays": 2062,
+      "truePositiveDays": 1229
+    },
+    "bypass": {
+      "meters": 86,
+      "trueDays": 942,
+      "predictedDays": 682,
+      "truePositiveDays": 618
+    },
+    "traveller": {
+      "meters": 102,
+      "trueDays": 1605,
+      "predictedDays": 2052,
+      "truePositiveDays": 1316
+    },
+    "mixeduse": {
+      "meters": 112,
+      "trueDays": 2720,
+      "predictedDays": 3137,
+      "truePositiveDays": 2066
+    }
+  }
+}
