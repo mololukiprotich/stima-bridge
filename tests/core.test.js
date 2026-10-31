@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { parsePurchases } from '../src/core/csv.js';
 import { analyzeMeter, DEFAULT_PARAMS } from '../src/core/detector.js';
 import { scoreHevs } from '../src/core/hevs.js';
-import { createStore, session, buyToken, allScreens, USSD_LIMIT, POLICY_VERSION, advanceValue, advanceFee } from '../src/core/ussd.js';
+import { createStore, session, buyToken, allScreens, USSD_LIMIT, POLICY_VERSION, SMS_FROM, advanceValue, advanceFee } from '../src/core/ussd.js';
+import { recordsToCsv, recordsFromCsv } from '../src/core/records.js';
 import { generate } from '../generator/simulate.js';
 import { readFileSync } from 'node:fs';
 
@@ -167,6 +168,62 @@ test('saved records restore the user and their balance', () => {
   const restored = createStore(JSON.parse(JSON.stringify(store.records)));
   assert.equal(restored.account.owed, 21);
   assert.equal(restored.lang, 'en');
+});
+
+test('an advance token SMS shows the token layout and the debt', () => {
+  const store = createStore();
+  const { s } = join(store);
+  s.input('1');
+  s.input('1');
+  s.input('1');
+  const { from, text } = store.sms.at(-1);
+  assert.equal(from, SMS_FROM.token);
+  assert.match(text, /^Mtr:37194820016\nToken:\d{4}-\d{4}-\d{4}-\d{4}-\d{4}\nDate:\d{8} \d\d:\d\d\nUnits:1\.0\nAmt Ksh:20\.00\n/);
+  assert.match(text, /Fee:1\.00\nTotal owed:21\.00/);
+});
+
+test('a token with no debt is a normal purchase', () => {
+  const store = createStore();
+  const s = session(store);
+  s.start();
+  s.input('1');
+  s.input('37000555000');
+  s.input('100');
+  assert.equal(s.input('1').end, true);
+  const [sale] = store.records.transactions;
+  assert.equal(sale.repaid_ksh, 0);
+  assert.equal(sale.id, '');
+  assert.equal(sale.kwh, 5.09);
+  assert.doesNotMatch(store.sms[0].text, /Advance/);
+});
+
+test('a token paid from another phone still repays that meter', () => {
+  const store = createStore();
+  const { s } = join(store);
+  s.input('1');
+  s.input('1');
+  s.input('1');
+  store.account = null;
+  const other = session(store);
+  other.start();
+  other.input('1');
+  other.input('37194820016');
+  assert.match(other.input('50').text, /KSh 10 repays/);
+  other.input('1');
+  assert.equal(store.records.users[0].owed, 11);
+  assert.match(store.sms.at(-1).text, /Advance repaid:10\.00\nAdvance left:11\.00/);
+});
+
+test('records survive a round trip through CSV', () => {
+  const store = createStore();
+  const { s } = join(store);
+  s.input('3');
+  s.input('2');
+  buyToken(store, 100);
+  const back = recordsFromCsv(recordsToCsv(store.records));
+  assert.deepEqual(back.users, store.records.users);
+  assert.deepEqual(back.reports, store.records.reports);
+  assert.deepEqual(back.transactions, store.records.transactions);
 });
 
 test('setting up with a known ID updates the same user', () => {

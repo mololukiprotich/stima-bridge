@@ -1,17 +1,22 @@
 import { parsePurchases, groupByMeter } from '../src/core/csv.js';
 import { analyzeMeter, periodOf, dayLabel, DEFAULT_PARAMS } from '../src/core/detector.js';
 import { scoreHevs, TIERS } from '../src/core/hevs.js';
+import { limitFor } from '../src/core/ussd.js';
+import { emptyRecords } from '../src/core/records.js';
 import { loadRecords, clearRecords, maskId, maskPhone } from './records.js';
 
 const $ = (id) => document.getElementById(id);
 const TIER_ORDER = ['Priority', 'Watch', 'Stable', 'Review'];
 const TABLE_LIMIT = 100;
 const MATCH_WINDOW_DAYS = 3;
+const RECORDS_POLL_MS = 3000;
 let params = { ...DEFAULT_PARAMS };
 let cutoff = TIERS.priority;
 let dataset = null;
 let results = [];
 let revealed = false;
+let records = emptyRecords();
+let shownUser = null;
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -86,19 +91,64 @@ function detectorCheck(report) {
 }
 
 function renderRecords() {
-  const { users, reports } = loadRecords();
+  const { users, reports } = records;
   const showId = (id) => esc(revealed ? id : maskId(id));
   const showPhone = (p) => esc(revealed ? p : maskPhone(p));
   $('revealRecords').textContent = revealed ? 'Hide full details' : 'Show full details';
   $('users').innerHTML = users.length ? users.map((u) => {
     const own = reports.filter((r) => r.id === u.id);
     const total = own.reduce((s, r) => s + r.days, 0);
-    return `<tr><td class="num">${showId(u.id)}</td><td class="num">${showPhone(u.phone)}</td><td class="num">${esc(u.meter)}</td>
-      <td>${esc(u.consentAt.slice(0, 10))}, ${esc(u.policyVersion)}</td><td class="num">${own.length}</td><td class="num">${total.toFixed(1)}</td></tr>`;
-  }).join('') : '<tr><td colspan="6">No one has set up yet. Use the USSD prototype to add a record.</td></tr>';
+    return `<tr tabindex="0" class="link" data-user="${esc(u.id)}"><td class="num">${showId(u.id)}</td><td class="num">${showPhone(u.phone)}</td><td class="num">${esc(u.meter)}</td>
+      <td>${esc(u.consentAt.slice(0, 10))}, ${esc(u.policyVersion)}</td><td class="num">KSh ${u.owed}</td><td class="num">${own.length}</td><td class="num">${total.toFixed(1)}</td></tr>`;
+  }).join('') : '<tr><td colspan="7">No one has set up yet. Use the USSD prototype to add a record.</td></tr>';
   $('reports').innerHTML = reports.length ? [...reports].reverse().map((r) => `
     <tr><td class="num">${esc(r.at.slice(0, 16).replace('T', ' '))}</td><td class="num">${showId(r.id)}</td><td class="num">${showPhone(r.phone)}</td>
       <td class="num">${esc(r.meter)}</td><td>${esc(r.band)}</td><td>${esc(detectorCheck(r))}</td></tr>`).join('') : '<tr><td colspan="6">No reports yet.</td></tr>';
+  showUser(shownUser);
+}
+
+// The person searched for by staff is shown in full, whatever the table masking says.
+function showUser(id) {
+  const u = records.users.find((x) => x.id === id);
+  shownUser = u ? id : null;
+  $('userPanel').hidden = !u;
+  if (!u) return;
+  const reports = records.reports.filter((r) => r.id === id);
+  const tokens = records.transactions.filter((t) => t.id === id);
+  const darkDays = reports.reduce((s, r) => s + r.days, 0);
+  $('userTitle').textContent = `User ${u.id}`;
+  $('userDetails').innerHTML = [
+    ['Phone', u.phone], ['Meter', u.meter], ['Status', u.left ? 'Left' : 'Active'], ['Joined', u.joinedAt.slice(0, 10)],
+    ['Consent', `${u.consentAt.slice(0, 10)}, ${u.policyVersion}`], ['Owed', `KSh ${u.owed}`], ['Advances repaid', u.repaid],
+    ['Current limit', `${limitFor(u)} kWh`], ['Reported dark days', darkDays.toFixed(1)],
+  ].map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('');
+  $('userTokens').innerHTML = tokens.length ? [...tokens].reverse().map((t) => `
+    <tr><td class="num">${esc(t.at.slice(0, 16).replace('T', ' '))}</td><td>${t.type === 'advance' ? 'Advance' : 'Purchase'}</td><td class="num">KSh ${t.amount_ksh}</td><td class="num">KSh ${t.fee_ksh}</td>
+      <td class="num">KSh ${t.repaid_ksh}</td><td class="num">${t.kwh.toFixed(1)}</td><td class="num">KSh ${t.owed_after}</td><td class="num">${esc(t.token)}</td></tr>`).join('') : '<tr><td colspan="8">No tokens yet.</td></tr>';
+  $('userReports').innerHTML = reports.length ? [...reports].reverse().map((r) => `
+    <tr><td class="num">${esc(r.at.slice(0, 16).replace('T', ' '))}</td><td>${esc(r.band)}</td><td>${esc(detectorCheck(r))}</td></tr>`).join('') : '<tr><td colspan="3">No reports yet.</td></tr>';
+}
+
+function search(raw) {
+  const q = raw.trim();
+  if (!q) {
+    showUser(null);
+    return void ($('searchNote').textContent = '');
+  }
+  const user = records.users.find((u) => u.id === q || u.phone === q || u.meter === q);
+  showUser(user?.id ?? null);
+  const meter = user?.meter ?? q;
+  const found = dataset ? showDetail(meter) : false;
+  $('searchNote').textContent = user ? 'Showing this user below.' : found ? 'Showing this meter below.' : 'No exact match yet.';
+}
+
+async function pollRecords() {
+  const next = await loadRecords();
+  if (next.offline) return void ($('recordsNote').textContent = 'Records server is not running. Start the app with npm run serve.');
+  $('recordsNote').textContent = '';
+  if (JSON.stringify(next) === JSON.stringify(records)) return;
+  records = next;
+  renderRecords();
 }
 
 function showDetail(id) {
@@ -162,11 +212,15 @@ async function start() {
     if (file) load(await file.text(), file.name);
   });
   ['minDark', 'maxGap', 'priority'].forEach((id) => $(id).addEventListener('change', analyse));
-  $('search').addEventListener('input', (e) => {
-    const id = e.target.value.trim();
-    if (!id || !dataset) return void ($('searchNote').textContent = '');
-    $('searchNote').textContent = showDetail(id) ? 'Showing this meter above the table.' : 'No exact match yet.';
-  });
+  $('search').addEventListener('input', (e) => search(e.target.value));
+  const openUser = (e) => {
+    const tr = e.target.closest('tr[data-user]');
+    if (!tr || (e.type === 'keydown' && e.key !== 'Enter')) return;
+    showUser(tr.dataset.user);
+    $('userPanel').scrollIntoView({ block: 'nearest' });
+  };
+  $('users').addEventListener('click', openUser);
+  $('users').addEventListener('keydown', openUser);
   $('rows').addEventListener('click', (e) => {
     const tr = e.target.closest('tr');
     if (tr) showDetail(tr.dataset.id);
@@ -179,12 +233,14 @@ async function start() {
     revealed = !revealed;
     renderRecords();
   });
-  $('clearRecords').addEventListener('click', () => {
-    clearRecords();
-    renderRecords();
+  $('clearRecords').addEventListener('click', async () => {
+    if (!window.confirm('Delete every user, report and token from data/records?')) return;
+    await clearRecords();
+    pollRecords();
   });
-  window.addEventListener('storage', renderRecords);
+  await pollRecords();
   renderRecords();
+  setInterval(pollRecords, RECORDS_POLL_MS);
   loadAccuracy();
   $('sample').click();
 }

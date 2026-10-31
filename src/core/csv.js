@@ -35,5 +35,5 @@ export function groupByMeter(rows) {
 }
 
 export function toCsv(columns, rows) {
-  return [columns.join(','), ...rows.map((r) => columns.map((c) => r[c]).join(','))].join('\n') + '\n';
+  return [columns.join(','), ...rows.map((r) => columns.map((c) => r[c] ?? '').join(','))].join('\n') + '\n';
 }

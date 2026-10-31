@@ -30,6 +30,8 @@ npm run serve
 
 Then open http://localhost:4173/web/ for the dashboard and http://localhost:4173/web/ussd.html for the USSD prototype.
 
+USSD records are saved by the local server as `data/records/users.csv`, `reports.csv` and `transactions.csv`. These files are not encrypted and are not committed, so use made-up details only.
+
 ## Testing rule
 
 Detector settings are tuned on the training set only. The test set uses a different seed and different household settings, and it is scored after tuning is fixed.

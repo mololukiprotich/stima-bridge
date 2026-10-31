@@ -48,7 +48,7 @@
       </section>
 
       <section class="app messages" id="messagesApp" hidden>
-        <h2 class="appbar">Messages</h2>
+        <h2 class="appbar" id="msgTitle">Messages</h2>
         <div class="thread" id="thread"></div>
       </section>
 
@@ -85,13 +85,14 @@
   <div class="side">
     <div class="panel">
       <h2>Try it</h2>
-      <p class="hint">Open Phone, dial *977#, then reply 00. On first use, set up with an ID number such as 12345678, phone 0712345678 and meter 37194820016.</p>
+      <p class="hint">Open Phone, dial *977#, then reply 00. On first use, set up with an ID number such as 12345678, phone 0712345678 and meter 37000555000. Reply 1 instead of 00 to buy a normal token. Tap an SMS alert to open it.</p>
       <div class="actions">
         <button id="autoDial" type="button">Dial *977# for me</button>
         <button id="buy" class="ghost" type="button">Buy KSh 100 token</button>
         <button id="reset" class="ghost" type="button">Start over</button>
       </div>
-      <p class="hint">You can also type on your keyboard. Use made-up details only, because records are saved in this browser.</p>
+      <p class="hint">You can also type on your keyboard. Use made-up details only, because records are saved as unencrypted CSV files in data/records.</p>
+      <p class="hint" id="saveStatus" role="status"></p>
     </div>
     <div class="panel">
       <h2>Account</h2>

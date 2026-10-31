@@ -12,7 +12,11 @@ All entries are sprint work, Sat 31 Oct 2026.
 - USSD prototype in English and Kiswahili
 - Phone simulation modelled on a 4-inch Android Go handset: dialer, USSD dialogs, numeric keyboard, SMS alerts and Messages app
 - First-use setup: ID number, phone, meter, then terms and privacy policy
-- USSD records: users, consent and no-power reports, saved in the browser and shown on the dashboard
+- USSD records: users, consent, no-power reports and tokens, saved as CSV files in `data/records` and shown on the dashboard
+- Dashboard search by ID, phone or meter, with a full view of each user
+- Normal token purchases on USSD, with debt following the meter's account
+- Messages app with conversations, and alerts that open the message when tapped
+- Token SMS in the Kenya Power layout, with advance and repayment lines added
 
 ## Detector notes
 

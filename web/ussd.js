@@ -1,27 +1,30 @@
 import { createStore, session, buyToken, limitFor } from '../src/core/ussd.js';
-import { loadRecords, saveRecords, maskId } from './records.js';
+import { loadRecords, saveRecords, loadPhone, savePhone, maskId } from './records.js';
 
 const $ = (id) => document.getElementById(id);
 const SERVICE_CODE = '*977#';
-const SENDER = 'StimaBridge';
+const DEMO_METER = '37000555000'; // In the sample purchase data, so the dashboard can check its reports.
 const SESSION_TIMEOUT_MS = 180000;
 const INVALID_MMI = 'Connection problem or invalid MMI code.';
 const NETWORK = { firstMin: 1300, firstMax: 2100, replyMin: 650, replyMax: 1500, smsMin: 1500, smsMax: 2800 };
 const KEYS = [['1', ''], ['2', 'ABC'], ['3', 'DEF'], ['4', 'GHI'], ['5', 'JKL'], ['6', 'MNO'], ['7', 'PQRS'], ['8', 'TUV'], ['9', 'WXYZ'], ['*', ''], ['0', '+'], ['#', '']];
 const MAX_INPUT = 16;
 
-let store = createStore(loadRecords());
+const phone = loadPhone();
+const saved = await loadRecords();
+let store = createStore({ ...saved, currentId: phone.currentId });
 let current = null;
 let view = 'home';
 let dialed = '';
 let value = '';
 let mode = 'idle'; // idle, running, prompt or message
 let seenSms = 0;
-let unread = 0;
 let timeout = null;
 let timers = [];
 let huTimer = null;
-let inbox = [];
+let inbox = phone.inbox;
+let openSender = null;
+let huSender = null;
 
 const later = (fn, ms) => {
   const id = setTimeout(fn, ms);
@@ -38,38 +41,76 @@ function tick() {
   $('homeDate').textContent = now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-function show(next) {
+function show(next, sender = null) {
   view = next;
   $('homeApp').hidden = next !== 'home';
   $('dialerApp').hidden = next !== 'dialer';
   $('messagesApp').hidden = next !== 'messages';
-  if (next === 'messages') {
-    unread = 0;
-    paintThread();
-    paintBadge();
-  }
+  if (next === 'messages') openConversation(sender);
+}
+
+function savePhoneState() {
+  savePhone({ currentId: store.records.currentId, inbox });
 }
 
 function paintBadge() {
+  const unread = inbox.filter((m) => m.unread).length;
   $('badge').hidden = !unread;
   $('badge').textContent = unread;
   $('statusIcons').innerHTML = unread ? '<svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>' : '';
 }
 
-function paintThread() {
-  const box = $('thread');
-  box.textContent = '';
+function openConversation(sender) {
+  openSender = sender;
+  if (sender) inbox.filter((m) => m.from === sender).forEach((m) => { m.unread = false; });
+  savePhoneState();
+  paintThread();
+  paintBadge();
+}
+
+function paintConversations(box) {
+  $('msgTitle').textContent = 'Messages';
   if (!inbox.length) {
     const none = document.createElement('em');
     none.textContent = 'No messages';
     box.append(none);
     return;
   }
-  for (const m of inbox) {
+  const senders = [...new Set([...inbox].reverse().map((m) => m.from))];
+  for (const from of senders) {
+    const own = inbox.filter((m) => m.from === from);
+    const last = own[own.length - 1];
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = own.some((m) => m.unread) ? 'convo unread' : 'convo';
+    row.dataset.sender = from;
+    const avatar = document.createElement('span');
+    avatar.className = 'avatar';
+    avatar.textContent = from[0];
+    const body = document.createElement('span');
+    body.className = 'convobody';
+    const name = document.createElement('b');
+    name.textContent = from;
+    const preview = document.createElement('span');
+    preview.textContent = last.text.replace(/\n/g, ' ');
+    body.append(name, preview);
+    const when = document.createElement('small');
+    when.textContent = last.time;
+    row.append(avatar, body, when);
+    box.append(row);
+  }
+}
+
+function paintThread() {
+  const box = $('thread');
+  box.textContent = '';
+  if (!openSender) return paintConversations(box);
+  $('msgTitle').textContent = openSender;
+  for (const m of inbox.filter((x) => x.from === openSender)) {
     const p = document.createElement('p');
     p.textContent = m.text;
     const when = document.createElement('small');
-    when.textContent = `${SENDER} · ${m.time}`;
+    when.textContent = m.time;
     p.append(when);
     box.append(p);
   }
@@ -79,19 +120,28 @@ function paintThread() {
 function paintAccount() {
   const a = store.account;
   const rows = a
-    ? [['ID', maskId(a.id)], ['Phone', a.phone], ['Meter', a.meter], ['Status', a.left ? 'Left' : 'Active'], ['Owed', `KSh ${a.owed}`], ['Advances repaid', a.repaid], ['Current limit', `${limitFor(a)} kWh`], ['No-power reports', store.records.reports.filter((r) => r.id === a.id).length]]
+    ? [['ID', maskId(a.id)], ['Phone', a.phone], ['Meter', a.meter], ['Status', a.left ? 'Left' : 'Active'], ['Owed', `KSh ${a.owed}`], ['Advances repaid', a.repaid], ['Current limit', `${limitFor(a)} kWh`], ['No-power reports', store.records.reports.filter((r) => r.id === a.id).length], ['Tokens', store.records.transactions.filter((t) => t.id === a.id).length]]
     : [['Status', 'Not set up']];
   $('account').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 }
 
-function notify(text) {
+function persist() {
+  savePhoneState();
+  saveRecords(store.records).then((ok) => {
+    $('saveStatus').textContent = ok ? 'Saved to data/records.' : 'Could not save. Start the app with npm run serve.';
+  });
+}
+
+function notify({ from, text }) {
   const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-  inbox.push({ text, time });
+  const reading = view === 'messages' && openSender === from;
+  inbox.push({ from, text, time, unread: !reading });
+  savePhoneState();
   if (view === 'messages') paintThread();
-  else unread++;
   paintBadge();
-  $('huFrom').textContent = SENDER;
-  $('huText').textContent = text;
+  huSender = from;
+  $('huFrom').textContent = from;
+  $('huText').textContent = text.replace(/\n/g, ' ');
   const hu = $('headsup');
   hu.classList.remove('out');
   hu.hidden = false;
@@ -108,8 +158,8 @@ function notify(text) {
 
 function deliverSms() {
   while (seenSms < store.sms.length) {
-    const text = store.sms[seenSms++];
-    later(() => notify(text), delay(NETWORK.smsMin, NETWORK.smsMax));
+    const sms = store.sms[seenSms++];
+    later(() => notify(sms), delay(NETWORK.smsMin, NETWORK.smsMax));
   }
 }
 
@@ -149,7 +199,7 @@ function presentMessage(text) {
 }
 
 function present(screen) {
-  saveRecords(store.records);
+  persist();
   paintAccount();
   deliverSms();
   if (screen.end) return presentMessage(screen.text);
@@ -177,6 +227,7 @@ function call() {
   const code = dialed;
   running();
   later(() => {
+    if (mode !== 'running') return;
     if (code !== SERVICE_CODE) return presentMessage(INVALID_MMI);
     current = session(store);
     present(current.start());
@@ -189,7 +240,9 @@ function send() {
   const reply = value.trim();
   if (!reply) return;
   running();
-  later(() => present(current.input(reply)), delay(NETWORK.replyMin, NETWORK.replyMax));
+  later(() => {
+    if (mode === 'running' && current) present(current.input(reply));
+  }, delay(NETWORK.replyMin, NETWORK.replyMax));
 }
 
 function cancel() {
@@ -227,21 +280,23 @@ function buildPads() {
 function goBack() {
   if (mode === 'prompt' || mode === 'message') return cancel();
   if (mode === 'running') return;
+  if (view === 'messages' && openSender) return openConversation(null);
   show('home');
 }
 
+// Starts a new phone. Saved records stay, so a returning ID finds its balance.
 function reset() {
   timers.forEach(clearTimeout);
   timers = [];
   store.records.currentId = null;
-  saveRecords(store.records);
   store = createStore(store.records);
   current = null;
   dialed = '';
   value = '';
   seenSms = 0;
-  unread = 0;
   inbox = [];
+  openSender = null;
+  savePhoneState();
   $('dialed').value = '';
   $('headsup').hidden = true;
   closeDialog();
@@ -263,7 +318,18 @@ function autoDial() {
   later(call, 350 + SERVICE_CODE.length * 230 + 350);
 }
 
+// Picks up changes made on the dashboard, such as clearing records.
+async function refresh() {
+  if (mode !== 'idle') return;
+  const records = await loadRecords();
+  if (records.offline || mode !== 'idle') return;
+  store = createStore({ ...records, currentId: store.records.currentId });
+  seenSms = 0;
+  paintAccount();
+}
+
 function start() {
+  if (saved.offline) $('saveStatus').textContent = 'Records server is not running. Start the app with npm run serve.';
   buildPads();
   tick();
   setInterval(tick, 10000);
@@ -273,10 +339,16 @@ function start() {
 
   $('openPhone').addEventListener('click', () => show('dialer'));
   $('openMessages').addEventListener('click', () => show('messages'));
+  $('thread').addEventListener('click', (e) => {
+    const row = e.target.closest('[data-sender]');
+    if (row) openConversation(row.dataset.sender);
+  });
   $('headsup').addEventListener('click', () => {
-    if (mode === 'idle') show('messages');
+    if (mode !== 'idle') cancel();
+    show('messages', huSender);
     $('headsup').hidden = true;
   });
+  window.addEventListener('focus', refresh);
   $('callBtn').addEventListener('click', call);
   $('dialBack').addEventListener('click', dialDelete);
   $('dialpad').addEventListener('click', (e) => {
@@ -303,9 +375,8 @@ function start() {
   $('autoDial').addEventListener('click', autoDial);
   $('reset').addEventListener('click', reset);
   $('buy').addEventListener('click', () => {
-    if (!store.account) return;
-    buyToken(store, 100);
-    saveRecords(store.records);
+    buyToken(store, 100, store.account?.meter || DEMO_METER);
+    persist();
     paintAccount();
     deliverSms();
   });

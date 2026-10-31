@@ -12,11 +12,19 @@ export const REPORT_BANDS = {
   4: { label: 'Over 1 day', days: 1.5 },
 };
 const LIMITS = [1, 2, 3]; // kWh limit rises with each advance repaid. Team decision still needed.
+export const SMS_FROM = { info: 'StimaBridge', token: 'KPLC (demo)' };
+const MIN_TOKEN_KSH = 20;
+const MAX_TOKEN_KSH = 10000;
 
 const T = {
   en: {
     home: 'Kenya Power (demo)\n1 Buy tokens\n2 My account\n00 Stima Bridge\n0 Exit',
-    other: 'This option is not part of the demo.',
+    buyMeter: 'Buy tokens\nEnter your 11-digit meter number\n0 Back',
+    buyAmount: `Buy tokens\nEnter amount in KSh (${MIN_TOKEN_KSH} to ${MAX_TOKEN_KSH})\n0 Back`,
+    buyConfirm: (ksh, meter, repaid) => `Pay KSh ${ksh} for meter ${meter}.${repaid ? ` KSh ${repaid} repays your advance.` : ''}\n1 Pay with M-Pesa (demo)\n0 Back`,
+    paid: 'Payment received. Your token is coming by SMS.',
+    accountInfo: (meter, owed, kwh) => `Meter ${meter}\nYou owe KSh ${owed}\nBorrow limit ${kwh} kWh\n0 Back`,
+    noAccount: 'No account on this phone. Reply 00 on the main menu to set up.\n0 Back',
     lang: 'Stima Bridge\nChoose language\n1 English\n2 Kiswahili',
     id: 'Welcome to Stima Bridge. Set up once to borrow units when tokens run low.\nEnter your ID number',
     phone: 'Link your phone number\ne.g. 0712345678',
@@ -41,13 +49,18 @@ const T = {
     leave: 'Leave Stima Bridge?\n1 Yes\n0 Back',
     leaveOwing: (ksh) => `You still repay KSh ${ksh} from tokens, but cannot borrow.\n1 Leave\n0 Back`,
     smsTerms: 'Stima Bridge terms: fee 5%, one advance at a time, up to 20% of each token repays it, no interest. Reply HELP for support.',
-    smsToken: (t, kwh) => `DEMO TOKEN ${t} for ${kwh} kWh. Not valid on a real meter.`,
-    smsReceipt: (paid, repaid, kwh, owed) => `Token KSh ${paid}: KSh ${repaid} repaid your advance, ${kwh} kWh bought. You owe KSh ${owed}. DEMO`,
+    smsAdvance: { advance: 'Bridge advance', fee: 'Fee', owed: 'Total owed', repay: 'Repaid at up to 20% of each token', demo: 'DEMO: not valid on a real meter' },
+    smsRepaid: { repaid: 'Advance repaid', owed: 'Advance left', demo: 'DEMO: not valid on a real meter' },
     bye: 'Goodbye.',
   },
   sw: {
     home: 'Kenya Power (demo)\n1 Nunua tokeni\n2 Akaunti yangu\n00 Stima Bridge\n0 Toka',
-    other: 'Chaguo hili halipo kwenye demo.',
+    buyMeter: 'Nunua tokeni\nWeka nambari ya mita yenye tarakimu 11\n0 Rudi',
+    buyAmount: `Nunua tokeni\nWeka kiasi cha KSh (${MIN_TOKEN_KSH} hadi ${MAX_TOKEN_KSH})\n0 Rudi`,
+    buyConfirm: (ksh, meter, repaid) => `Lipa KSh ${ksh} kwa mita ${meter}.${repaid ? ` KSh ${repaid} zitalipa mkopo wako.` : ''}\n1 Lipa kwa M-Pesa (demo)\n0 Rudi`,
+    paid: 'Malipo yamepokelewa. Tokeni yako itakuja kwa SMS.',
+    accountInfo: (meter, owed, kwh) => `Mita ${meter}\nUnadaiwa KSh ${owed}\nKikomo cha mkopo kWh ${kwh}\n0 Rudi`,
+    noAccount: 'Hakuna akaunti kwenye simu hii. Bonyeza 00 kwenye menyu kuu kujisajili.\n0 Rudi',
     lang: 'Stima Bridge\nChagua lugha\n1 English\n2 Kiswahili',
     id: 'Karibu Stima Bridge. Jisajili mara moja ili ukope uniti tokeni zinapokaribia kuisha.\nWeka nambari ya kitambulisho',
     phone: 'Unganisha nambari yako ya simu\nmfano 0712345678',
@@ -72,8 +85,8 @@ const T = {
     leave: 'Ondoka Stima Bridge?\n1 Ndiyo\n0 Rudi',
     leaveOwing: (ksh) => `Utaendelea kulipa KSh ${ksh} kupitia tokeni, lakini hutaweza kukopa.\n1 Ondoka\n0 Rudi`,
     smsTerms: 'Masharti ya Stima Bridge: ada 5%, mkopo mmoja kwa wakati, hadi 20% ya kila tokeni hulipa deni, hakuna riba. Tuma HELP kwa msaada.',
-    smsToken: (t, kwh) => `TOKENI YA DEMO ${t} ya kWh ${kwh}. Haifanyi kazi kwenye mita halisi.`,
-    smsReceipt: (paid, repaid, kwh, owed) => `Tokeni KSh ${paid}: KSh ${repaid} zimelipa mkopo, kWh ${kwh} zimenunuliwa. Deni KSh ${owed}. DEMO`,
+    smsAdvance: { advance: 'Mkopo wa Bridge', fee: 'Ada', owed: 'Jumla ya deni', repay: 'Hulipwa hadi 20% ya kila tokeni', demo: 'DEMO: haifanyi kazi kwenye mita halisi' },
+    smsRepaid: { repaid: 'Mkopo uliolipwa', owed: 'Deni lililobaki', demo: 'DEMO: haifanyi kazi kwenye mita halisi' },
     bye: 'Kwaheri.',
   },
 };
@@ -83,7 +96,7 @@ export const advanceFee = (kwh) => Math.round(advanceValue(kwh) * FEE_RATE);
 export const limitFor = (account) => LIMITS[Math.min(account.repaid, LIMITS.length - 1)];
 
 export function createStore(saved) {
-  const records = saved || { users: [], reports: [], currentId: null };
+  const records = { users: [], reports: [], transactions: [], currentId: null, ...saved };
   const account = records.users.find((u) => u.id === records.currentId) || null;
   return { account, lang: account?.lang || null, sms: [], records };
 }
@@ -91,20 +104,55 @@ export function createStore(saved) {
 function demoToken() {
   let digits = '';
   while (digits.length < 20) digits += Math.floor(Math.random() * 10);
-  return digits.replace(/(\d{4})(?=\d)/g, '$1 ');
+  return digits.replace(/(\d{4})(?=\d)/g, '$1-').slice(0, 24);
 }
 
+const pad = (n) => String(n).padStart(2, '0');
+const tokenDate = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const money = (ksh) => ksh.toFixed(2);
+
+// Follows the layout of a Kenya Power token SMS. Check it against a real message.
+function tokenSms({ meter, token, date, kwh, amount }, extra = []) {
+  return [`Mtr:${meter}`, `Token:${token}`, `Date:${tokenDate(date)}`, `Units:${kwh.toFixed(1)}`, `Amt Ksh:${money(amount)}`, ...extra].join('\n');
+}
+
+// A token can be paid for by anyone, so debt follows the meter's account, not the phone.
+function accountFor(store, meter) {
+  const users = store.records.users.filter((u) => u.meter === meter);
+  return users.find((u) => u.owed > 0) || users[0] || null;
+}
+
+const repayment = (account, amountKsh) => (account ? Math.min(account.owed, Math.floor(amountKsh * REPAY_SHARE)) : 0);
+
 // Repayment on a normal token purchase. The balance sits on the account, not on the meter.
-export function buyToken(store, amountKsh) {
-  const a = store.account;
-  const repaid = a ? Math.min(a.owed, Math.floor(amountKsh * REPAY_SHARE)) : 0;
-  if (a && repaid) {
+export function buyToken(store, amountKsh, meter = store.account?.meter) {
+  const a = accountFor(store, meter);
+  const repaid = repayment(a, amountKsh);
+  if (repaid) {
     a.owed -= repaid;
     if (a.owed === 0) a.repaid += 1;
   }
   const kwh = (amountKsh - repaid) / RATES.lifeline;
-  if (a) store.sms.push(T[store.lang || 'en'].smsReceipt(amountKsh, repaid, kwh.toFixed(1), a.owed));
+  const date = new Date();
+  const token = demoToken();
+  const label = T[a?.lang || store.lang || 'en'].smsRepaid;
+  const extra = repaid ? [`${label.repaid}:${money(repaid)}`, `${label.owed}:${money(a.owed)}`, label.demo] : [label.demo];
+  store.sms.push({ from: SMS_FROM.token, text: tokenSms({ meter, token, date, kwh, amount: amountKsh }, extra) });
+  store.records.transactions.push({ at: date.toISOString(), type: 'purchase', id: a?.id || '', phone: a?.phone || '', meter, amount_ksh: amountKsh, fee_ksh: 0, repaid_ksh: repaid, kwh: Number(kwh.toFixed(2)), owed_after: a?.owed ?? 0, token });
   return { repaid, toUnits: amountKsh - repaid, kwh };
+}
+
+function advanceToken(store, kwh) {
+  const a = store.account;
+  const value = advanceValue(kwh);
+  const fee = advanceFee(kwh);
+  a.owed = value + fee;
+  const date = new Date();
+  const token = demoToken();
+  const label = T[store.lang || 'en'].smsAdvance;
+  const extra = [`${label.advance}:${money(value)}`, `${label.fee}:${money(fee)}`, `${label.owed}:${money(a.owed)}`, label.repay, label.demo];
+  store.sms.push({ from: SMS_FROM.token, text: tokenSms({ meter: a.meter, token, date, kwh, amount: value }, extra) });
+  store.records.transactions.push({ at: date.toISOString(), type: 'advance', id: a.id, phone: a.phone, meter: a.meter, amount_ksh: value, fee_ksh: fee, repaid_ksh: 0, kwh, owed_after: a.owed, token });
 }
 
 export function session(store) {
@@ -135,7 +183,37 @@ export function session(store) {
         if (hasActive()) return menu();
         return store.lang ? show('id', t().id) : show('lang', T.en.lang);
       }
-      return x === '0' ? end(T[store.lang || 'en'].bye) : end(t().other);
+      if (x === '1') {
+        if (!store.account) return show('buyMeter', t().buyMeter);
+        draft.meter = store.account.meter;
+        return show('buyAmount', t().buyAmount);
+      }
+      if (x === '2') {
+        const a = store.account;
+        return show('homeBack', a ? t().accountInfo(a.meter, a.owed, limitFor(a)) : t().noAccount);
+      }
+      return x === '0' ? end(t().bye) : show('home', t().home);
+    },
+    homeBack() {
+      return show('home', t().home);
+    },
+    buyMeter(x) {
+      if (x === '0') return show('home', t().home);
+      if (!/^\d{11}$/.test(x)) return show('buyMeter', `${t().bad}\n${t().buyMeter}`);
+      draft.meter = x;
+      return show('buyAmount', t().buyAmount);
+    },
+    buyAmount(x) {
+      if (x === '0') return show('home', t().home);
+      const ksh = Number(x);
+      if (!Number.isInteger(ksh) || ksh < MIN_TOKEN_KSH || ksh > MAX_TOKEN_KSH) return show('buyAmount', `${t().bad}\n${t().buyAmount}`);
+      draft.ksh = ksh;
+      return show('buyConfirm', t().buyConfirm(ksh, draft.meter, repayment(accountFor(store, draft.meter), ksh)));
+    },
+    buyConfirm(x) {
+      if (x !== '1') return show('home', t().home);
+      buyToken(store, draft.ksh, draft.meter);
+      return end(t().paid);
     },
     lang(x) {
       if (x !== '1' && x !== '2') return show('lang', T.en.lang);
@@ -175,7 +253,7 @@ export function session(store) {
         store.records.currentId = user.id;
         draft = {};
         state = 'menu';
-        store.sms.push(t().smsTerms);
+        store.sms.push({ from: SMS_FROM.info, text: t().smsTerms });
         return { text: `${t().joined}\n\n${t().menu}`, end: false };
       }
       draft = {};
@@ -205,8 +283,7 @@ export function session(store) {
     },
     confirm(x) {
       if (x !== '1') return menu();
-      store.account.owed = advanceValue(draft.kwh) + advanceFee(draft.kwh);
-      store.sms.push(t().smsToken(demoToken(), draft.kwh));
+      advanceToken(store, draft.kwh);
       return end(t().sent);
     },
     report(x) {
