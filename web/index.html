@@ -64,6 +64,30 @@
   <p class="legend"><span class="key buy"></span> Token bought <span class="key dark"></span> Estimated dark period</p>
 </section>
 
+<section class="panel records">
+  <div class="rowhead">
+    <h2>USSD records</h2>
+    <div class="actions">
+      <button id="revealRecords" class="ghost" type="button">Show full details</button>
+      <button id="clearRecords" class="ghost" type="button">Clear records</button>
+    </div>
+  </div>
+  <p class="hint">People who set up on USSD, and the no-power reports linked to them. Reported days are estimates from each person's chosen time band.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>ID</th><th>Phone</th><th>Meter</th><th>Consent</th><th>Reports</th><th>Reported dark days</th></tr></thead>
+      <tbody id="users"></tbody>
+    </table>
+  </div>
+  <h3>No-power reports</h3>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Reported</th><th>ID</th><th>Phone</th><th>Meter</th><th>Time without power</th><th>Detector check</th></tr></thead>
+      <tbody id="reports"></tbody>
+    </table>
+  </div>
+</section>
+
 <section class="panel">
   <h2>Households by need</h2>
   <div class="scroll">

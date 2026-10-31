@@ -51,6 +51,10 @@ tbody tr:hover, tbody tr:focus-visible { background: var(--tint); }
 .key { display: inline-block; width: 12px; height: 12px; margin-inline: 8px 3px; vertical-align: -1px; }
 .key.buy { background: var(--accent); } .key.dark { background: var(--bad); opacity: .65; }
 #detailPanel { margin-bottom: 14px; }
+.records { margin-bottom: 14px; }
+.records h3 { margin: 16px 0 4px; font-size: 16px; }
+.rowhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.records tbody tr { cursor: default; }
 
 /* USSD prototype */
 .side { display: grid; gap: 14px; min-width: 0; }

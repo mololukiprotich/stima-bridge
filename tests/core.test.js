@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { parsePurchases } from '../src/core/csv.js';
 import { analyzeMeter, DEFAULT_PARAMS } from '../src/core/detector.js';
 import { scoreHevs } from '../src/core/hevs.js';
-import { createStore, session, buyToken, allScreens, USSD_LIMIT, advanceValue, advanceFee } from '../src/core/ussd.js';
+import { createStore, session, buyToken, allScreens, USSD_LIMIT, POLICY_VERSION, advanceValue, advanceFee } from '../src/core/ussd.js';
 import { generate } from '../generator/simulate.js';
 import { readFileSync } from 'node:fs';
 
@@ -93,6 +93,7 @@ test('declining saves nothing', () => {
   for (const x of ['00', '2', '12345678', '0712345678', '37194820016']) s.input(x);
   assert.equal(s.input('2').end, true);
   assert.equal(store.account, null);
+  assert.equal(store.records.users.length, 0);
 });
 
 test('invalid details are asked for again', () => {
@@ -141,6 +142,41 @@ test('a report is saved and does not change the limit', () => {
   const { s } = join(store);
   s.input('3');
   assert.equal(s.input('2').end, true);
-  assert.deepEqual(store.reports, [2]);
+  const [report] = store.records.reports;
+  assert.equal(report.id, '12345678');
+  assert.equal(report.phone, '0712345678');
+  assert.equal(report.meter, '37194820016');
+  assert.equal(report.band, '6-12 hours');
   assert.equal(store.account.repaid, 0);
+});
+
+test('setup records the user with consent', () => {
+  const store = createStore();
+  join(store);
+  const [user] = store.records.users;
+  assert.equal(user.id, '12345678');
+  assert.equal(user.phone, '0712345678');
+  assert.equal(user.policyVersion, POLICY_VERSION);
+  assert.ok(user.consentAt);
+});
+
+test('saved records restore the user and their balance', () => {
+  const store = createStore();
+  join(store);
+  store.account.owed = 21;
+  const restored = createStore(JSON.parse(JSON.stringify(store.records)));
+  assert.equal(restored.account.owed, 21);
+  assert.equal(restored.lang, 'en');
+});
+
+test('setting up with a known ID updates the same user', () => {
+  const store = createStore();
+  join(store);
+  store.records.currentId = null;
+  store.account = null;
+  const s = session(store);
+  s.start();
+  for (const x of ['00', '12345678', '0798765432', '37194820016', '1']) s.input(x);
+  assert.equal(store.records.users.length, 1);
+  assert.equal(store.records.users[0].phone, '0798765432');
 });

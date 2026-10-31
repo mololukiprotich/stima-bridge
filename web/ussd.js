@@ -1,4 +1,5 @@
 import { createStore, session, buyToken, limitFor } from '../src/core/ussd.js';
+import { loadRecords, saveRecords, maskId } from './records.js';
 
 const $ = (id) => document.getElementById(id);
 const SERVICE_CODE = '*977#';
@@ -9,7 +10,7 @@ const NETWORK = { firstMin: 1300, firstMax: 2100, replyMin: 650, replyMax: 1500,
 const KEYS = [['1', ''], ['2', 'ABC'], ['3', 'DEF'], ['4', 'GHI'], ['5', 'JKL'], ['6', 'MNO'], ['7', 'PQRS'], ['8', 'TUV'], ['9', 'WXYZ'], ['*', ''], ['0', '+'], ['#', '']];
 const MAX_INPUT = 16;
 
-let store = createStore();
+let store = createStore(loadRecords());
 let current = null;
 let view = 'home';
 let dialed = '';
@@ -78,7 +79,7 @@ function paintThread() {
 function paintAccount() {
   const a = store.account;
   const rows = a
-    ? [['ID', `••••${a.id.slice(-2)}`], ['Phone', a.phone], ['Meter', a.meter], ['Status', a.left ? 'Left' : 'Active'], ['Owed', `KSh ${a.owed}`], ['Advances repaid', a.repaid], ['Current limit', `${limitFor(a)} kWh`], ['No-power reports', store.reports.length]]
+    ? [['ID', maskId(a.id)], ['Phone', a.phone], ['Meter', a.meter], ['Status', a.left ? 'Left' : 'Active'], ['Owed', `KSh ${a.owed}`], ['Advances repaid', a.repaid], ['Current limit', `${limitFor(a)} kWh`], ['No-power reports', store.records.reports.filter((r) => r.id === a.id).length]]
     : [['Status', 'Not set up']];
   $('account').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 }
@@ -148,6 +149,7 @@ function presentMessage(text) {
 }
 
 function present(screen) {
+  saveRecords(store.records);
   paintAccount();
   deliverSms();
   if (screen.end) return presentMessage(screen.text);
@@ -231,7 +233,9 @@ function goBack() {
 function reset() {
   timers.forEach(clearTimeout);
   timers = [];
-  store = createStore();
+  store.records.currentId = null;
+  saveRecords(store.records);
+  store = createStore(store.records);
   current = null;
   dialed = '';
   value = '';
@@ -301,6 +305,7 @@ function start() {
   $('buy').addEventListener('click', () => {
     if (!store.account) return;
     buyToken(store, 100);
+    saveRecords(store.records);
     paintAccount();
     deliverSms();
   });

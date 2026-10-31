@@ -12,6 +12,7 @@ All entries are sprint work, Sat 31 Oct 2026.
 - USSD prototype in English and Kiswahili
 - Phone simulation modelled on a 4-inch Android Go handset: dialer, USSD dialogs, numeric keyboard, SMS alerts and Messages app
 - First-use setup: ID number, phone, meter, then terms and privacy policy
+- USSD records: users, consent and no-power reports, saved in the browser and shown on the dashboard
 
 ## Detector notes
 

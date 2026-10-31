@@ -4,6 +4,13 @@ import { RATES } from './tariff.js';
 export const USSD_LIMIT = 182;
 export const FEE_RATE = 0.05;
 export const REPAY_SHARE = 0.2;
+export const POLICY_VERSION = 'draft-1';
+export const REPORT_BANDS = {
+  1: { label: 'Under 6 hours', days: 0.125 },
+  2: { label: '6-12 hours', days: 0.375 },
+  3: { label: '12-24 hours', days: 0.75 },
+  4: { label: 'Over 1 day', days: 1.5 },
+};
 const LIMITS = [1, 2, 3]; // kWh limit rises with each advance repaid. Team decision still needed.
 
 const T = {
@@ -17,7 +24,7 @@ const T = {
     bad: 'That did not look right. Try again.',
     terms: (kwh) => `Borrow up to ${kwh} kWh. Fee 5%. Up to 20% of each token repays it.\n1 Accept terms and privacy policy\n2 Decline\n3 Read policies`,
     termsDoc: 'Terms 1/2\nOne advance at a time. Fee 5%, no interest. You must repay even if you leave.\n1 Next\n0 Back',
-    privacyDoc: 'Privacy 2/2\nWe use your ID, phone and meter only to run this service. We never sell your data.\n0 Back',
+    privacyDoc: 'Privacy 2/2\nWe use your ID, phone, meter and no-power reports only to run this service. We never sell your data.\n0 Back',
     declined: 'You have not joined. Nothing was saved.',
     joined: 'You have joined Stima Bridge.',
     menu: 'Stima Bridge\n1 Borrow\n2 See what I owe\n3 Report no power\n4 Leave\n0 Exit',
@@ -48,7 +55,7 @@ const T = {
     bad: 'Hiyo si sahihi. Jaribu tena.',
     terms: (kwh) => `Kopa hadi kWh ${kwh}. Ada 5%. Hadi 20% ya kila tokeni hulipa deni.\n1 Kubali masharti na sera ya faragha\n2 Kataa\n3 Soma sera`,
     termsDoc: 'Masharti 1/2\nMkopo mmoja kwa wakati. Ada 5%, hakuna riba. Lazima ulipe hata ukiondoka.\n1 Endelea\n0 Rudi',
-    privacyDoc: 'Faragha 2/2\nTunatumia kitambulisho, simu na mita kuendesha huduma hii tu. Hatuuzi data yako.\n0 Rudi',
+    privacyDoc: 'Faragha 2/2\nTunatumia kitambulisho, simu, mita na ripoti zako kuendesha huduma hii tu. Hatuuzi data yako.\n0 Rudi',
     declined: 'Hujajiunga. Hakuna kilichohifadhiwa.',
     joined: 'Umejiunga na Stima Bridge.',
     menu: 'Stima Bridge\n1 Kopa\n2 Angalia deni\n3 Ripoti kukosa umeme\n4 Ondoka\n0 Toka',
@@ -75,8 +82,10 @@ export const advanceValue = (kwh) => Math.round(kwh * RATES.lifeline);
 export const advanceFee = (kwh) => Math.round(advanceValue(kwh) * FEE_RATE);
 export const limitFor = (account) => LIMITS[Math.min(account.repaid, LIMITS.length - 1)];
 
-export function createStore() {
-  return { account: null, lang: null, sms: [], reports: [] };
+export function createStore(saved) {
+  const records = saved || { users: [], reports: [], currentId: null };
+  const account = records.users.find((u) => u.id === records.currentId) || null;
+  return { account, lang: account?.lang || null, sms: [], records };
 }
 
 function demoToken() {
@@ -157,8 +166,13 @@ export function session(store) {
     terms(x) {
       if (x === '3') return show('doc1', t().termsDoc);
       if (x === '1') {
-        const earlier = store.account;
-        store.account = { phone: draft.phone, meter: draft.meter, id: draft.id, owed: earlier?.owed || 0, repaid: earlier?.repaid || 0, left: false };
+        const now = new Date().toISOString();
+        const known = store.records.users.find((u) => u.id === draft.id);
+        const user = known || { id: draft.id, joinedAt: now, owed: 0, repaid: 0 };
+        Object.assign(user, { phone: draft.phone, meter: draft.meter, lang: store.lang, left: false, consentAt: now, policyVersion: POLICY_VERSION });
+        if (!known) store.records.users.push(user);
+        store.account = user;
+        store.records.currentId = user.id;
         draft = {};
         state = 'menu';
         store.sms.push(t().smsTerms);
@@ -197,7 +211,9 @@ export function session(store) {
     },
     report(x) {
       if (!['1', '2', '3', '4'].includes(x)) return menu();
-      store.reports.push(Number(x));
+      const a = store.account;
+      const band = REPORT_BANDS[x];
+      store.records.reports.push({ at: new Date().toISOString(), id: a.id, phone: a.phone, meter: a.meter, band: band.label, days: band.days });
       return end(t().thanks);
     },
     leave(x) {

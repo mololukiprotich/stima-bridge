@@ -1,14 +1,17 @@
 import { parsePurchases, groupByMeter } from '../src/core/csv.js';
 import { analyzeMeter, periodOf, dayLabel, DEFAULT_PARAMS } from '../src/core/detector.js';
 import { scoreHevs, TIERS } from '../src/core/hevs.js';
+import { loadRecords, clearRecords, maskId, maskPhone } from './records.js';
 
 const $ = (id) => document.getElementById(id);
 const TIER_ORDER = ['Priority', 'Watch', 'Stable', 'Review'];
 const TABLE_LIMIT = 100;
+const MATCH_WINDOW_DAYS = 3;
 let params = { ...DEFAULT_PARAMS };
 let cutoff = TIERS.priority;
 let dataset = null;
 let results = [];
+let revealed = false;
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -68,6 +71,34 @@ function render() {
     </tr>`).join('');
   $('tableNote').textContent = results.length > TABLE_LIMIT ? `Showing the top ${TABLE_LIMIT} of ${results.length.toLocaleString()} meters.` : '';
   if (results.length) showDetail(results[0].meterId);
+  renderRecords();
+}
+
+function detectorCheck(report) {
+  if (!dataset) return 'No purchase data loaded';
+  const r = results.find((x) => x.meterId === report.meter);
+  if (!r) return 'Meter not in purchase data';
+  const t = Date.parse(report.at) / 86400000;
+  const { start, days } = dataset.period;
+  if (t < start || t > start + days + MATCH_WINDOW_DAYS) return 'Outside purchase data dates';
+  const near = r.episodes.some((e) => t >= e.start - MATCH_WINDOW_DAYS && t <= e.end + MATCH_WINDOW_DAYS);
+  return near ? 'Matches an estimated dark period' : 'No estimated dark period nearby';
+}
+
+function renderRecords() {
+  const { users, reports } = loadRecords();
+  const showId = (id) => esc(revealed ? id : maskId(id));
+  const showPhone = (p) => esc(revealed ? p : maskPhone(p));
+  $('revealRecords').textContent = revealed ? 'Hide full details' : 'Show full details';
+  $('users').innerHTML = users.length ? users.map((u) => {
+    const own = reports.filter((r) => r.id === u.id);
+    const total = own.reduce((s, r) => s + r.days, 0);
+    return `<tr><td class="num">${showId(u.id)}</td><td class="num">${showPhone(u.phone)}</td><td class="num">${esc(u.meter)}</td>
+      <td>${esc(u.consentAt.slice(0, 10))}, ${esc(u.policyVersion)}</td><td class="num">${own.length}</td><td class="num">${total.toFixed(1)}</td></tr>`;
+  }).join('') : '<tr><td colspan="6">No one has set up yet. Use the USSD prototype to add a record.</td></tr>';
+  $('reports').innerHTML = reports.length ? [...reports].reverse().map((r) => `
+    <tr><td class="num">${esc(r.at.slice(0, 16).replace('T', ' '))}</td><td class="num">${showId(r.id)}</td><td class="num">${showPhone(r.phone)}</td>
+      <td class="num">${esc(r.meter)}</td><td>${esc(r.band)}</td><td>${esc(detectorCheck(r))}</td></tr>`).join('') : '<tr><td colspan="6">No reports yet.</td></tr>';
 }
 
 function showDetail(id) {
@@ -144,6 +175,16 @@ async function start() {
     const tr = e.target.closest('tr');
     if (tr && e.key === 'Enter') showDetail(tr.dataset.id);
   });
+  $('revealRecords').addEventListener('click', () => {
+    revealed = !revealed;
+    renderRecords();
+  });
+  $('clearRecords').addEventListener('click', () => {
+    clearRecords();
+    renderRecords();
+  });
+  window.addEventListener('storage', renderRecords);
+  renderRecords();
   loadAccuracy();
   $('sample').click();
 }
