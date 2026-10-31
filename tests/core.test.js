@@ -58,7 +58,7 @@ test('every USSD screen fits the limit', () => {
 function join(store) {
   const s = session(store);
   s.start();
-  for (const x of ['00', '1', '1', '0712345678', '37194820016', '12345678']) s.input(x);
+  for (const x of ['00', '1', '12345678', '0712345678', '37194820016']) s.input(x);
   return { s, screen: s.input('1') };
 }
 
@@ -70,11 +70,27 @@ test('joining shows the member menu', () => {
   assert.equal(store.sms.length, 1);
 });
 
+test('first use starts setup with the ID number', () => {
+  const s = session(createStore());
+  s.start();
+  s.input('00');
+  assert.match(s.input('1').text, /Enter your ID number/);
+});
+
+test('policies can be read before accepting', () => {
+  const s = session(createStore());
+  s.start();
+  for (const x of ['00', '1', '12345678', '0712345678', '37194820016']) s.input(x);
+  assert.match(s.input('3').text, /Terms 1\/2/);
+  assert.match(s.input('1').text, /Privacy 2\/2/);
+  assert.match(s.input('0').text, /Accept terms/);
+});
+
 test('declining saves nothing', () => {
   const store = createStore();
   const s = session(store);
   s.start();
-  for (const x of ['00', '2', '1', '0712345678', '37194820016', '12345678']) s.input(x);
+  for (const x of ['00', '2', '12345678', '0712345678', '37194820016']) s.input(x);
   assert.equal(s.input('2').end, true);
   assert.equal(store.account, null);
 });
@@ -82,7 +98,7 @@ test('declining saves nothing', () => {
 test('invalid details are asked for again', () => {
   const s = session(createStore());
   s.start();
-  for (const x of ['00', '1', '1']) s.input(x);
+  for (const x of ['00', '1']) s.input(x);
   assert.match(s.input('123').text, /did not look right/);
 });
 

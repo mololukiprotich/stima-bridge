@@ -53,20 +53,12 @@ tbody tr:hover, tbody tr:focus-visible { background: var(--tint); }
 #detailPanel { margin-bottom: 14px; }
 
 /* USSD prototype */
-.ussd { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 24px; align-items: start; margin-top: 16px; }
-.phone { background: var(--lcd); border-radius: 22px; padding: 18px 16px; }
-.screen { background: #dfe9d4; color: #142017; border-radius: 6px; padding: 12px; min-height: 250px; white-space: pre-wrap; font: 15.5px/1.45 Consolas, monospace; overflow-wrap: anywhere; }
-.reply { display: flex; gap: 8px; margin-top: 12px; }
-.reply input { flex: 1; min-width: 0; }
-.reply input { background: #eef3ec; color: #142017; }
 .side { display: grid; gap: 14px; min-width: 0; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
-.sms { display: grid; gap: 8px; font-size: 14.5px; }
-.sms p { margin: 0; padding: 8px 10px; background: var(--tint); border-radius: 6px; overflow-wrap: anywhere; }
 dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; font-size: 15px; }
 dt { color: var(--muted); } dd { margin: 0; font-variant-numeric: tabular-nums; }
 @media (max-width: 860px) {
-  .controls, .two, .ussd { grid-template-columns: minmax(0, 1fr); }
+  .controls, .two { grid-template-columns: minmax(0, 1fr); }
   .stats { grid-template-columns: repeat(2, 1fr); }
 }

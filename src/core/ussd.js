@@ -11,12 +11,13 @@ const T = {
     home: 'Kenya Power (demo)\n1 Buy tokens\n2 My account\n00 Stima Bridge\n0 Exit',
     other: 'This option is not part of the demo.',
     lang: 'Stima Bridge\nChoose language\n1 English\n2 Kiswahili',
-    intro: 'Stima Bridge lets you borrow units when tokens run low.\n1 Join\n0 Back',
-    phone: 'Enter your phone number\ne.g. 0712345678',
+    id: 'Welcome to Stima Bridge. Set up once to borrow units when tokens run low.\nEnter your ID number',
+    phone: 'Link your phone number\ne.g. 0712345678',
     meter: 'Enter your 11-digit meter number',
-    id: 'Enter your national ID number',
     bad: 'That did not look right. Try again.',
-    terms: (kwh) => `Borrow up to ${kwh} kWh. Fee 5%. Up to 20% of each token repays it. Terms sent by SMS.\n1 Accept\n2 Decline`,
+    terms: (kwh) => `Borrow up to ${kwh} kWh. Fee 5%. Up to 20% of each token repays it.\n1 Accept terms and privacy policy\n2 Decline\n3 Read policies`,
+    termsDoc: 'Terms 1/2\nOne advance at a time. Fee 5%, no interest. You must repay even if you leave.\n1 Next\n0 Back',
+    privacyDoc: 'Privacy 2/2\nWe use your ID, phone and meter only to run this service. We never sell your data.\n0 Back',
     declined: 'You have not joined. Nothing was saved.',
     joined: 'You have joined Stima Bridge.',
     menu: 'Stima Bridge\n1 Borrow\n2 See what I owe\n3 Report no power\n4 Leave\n0 Exit',
@@ -34,18 +35,20 @@ const T = {
     leaveOwing: (ksh) => `You still repay KSh ${ksh} from tokens, but cannot borrow.\n1 Leave\n0 Back`,
     smsTerms: 'Stima Bridge terms: fee 5%, one advance at a time, up to 20% of each token repays it, no interest. Reply HELP for support.',
     smsToken: (t, kwh) => `DEMO TOKEN ${t} for ${kwh} kWh. Not valid on a real meter.`,
+    smsReceipt: (paid, repaid, kwh, owed) => `Token KSh ${paid}: KSh ${repaid} repaid your advance, ${kwh} kWh bought. You owe KSh ${owed}. DEMO`,
     bye: 'Goodbye.',
   },
   sw: {
     home: 'Kenya Power (demo)\n1 Nunua tokeni\n2 Akaunti yangu\n00 Stima Bridge\n0 Toka',
     other: 'Chaguo hili halipo kwenye demo.',
     lang: 'Stima Bridge\nChagua lugha\n1 English\n2 Kiswahili',
-    intro: 'Stima Bridge hukuwezesha kukopa uniti tokeni zinapokaribia kuisha.\n1 Jiunge\n0 Rudi',
-    phone: 'Weka nambari yako ya simu\nmfano 0712345678',
+    id: 'Karibu Stima Bridge. Jisajili mara moja ili ukope uniti tokeni zinapokaribia kuisha.\nWeka nambari ya kitambulisho',
+    phone: 'Unganisha nambari yako ya simu\nmfano 0712345678',
     meter: 'Weka nambari ya mita yenye tarakimu 11',
-    id: 'Weka nambari ya kitambulisho',
     bad: 'Hiyo si sahihi. Jaribu tena.',
-    terms: (kwh) => `Kopa hadi kWh ${kwh}. Ada 5%. Hadi 20% ya kila tokeni hulipa deni. Masharti yatatumwa kwa SMS.\n1 Kubali\n2 Kataa`,
+    terms: (kwh) => `Kopa hadi kWh ${kwh}. Ada 5%. Hadi 20% ya kila tokeni hulipa deni.\n1 Kubali masharti na sera ya faragha\n2 Kataa\n3 Soma sera`,
+    termsDoc: 'Masharti 1/2\nMkopo mmoja kwa wakati. Ada 5%, hakuna riba. Lazima ulipe hata ukiondoka.\n1 Endelea\n0 Rudi',
+    privacyDoc: 'Faragha 2/2\nTunatumia kitambulisho, simu na mita kuendesha huduma hii tu. Hatuuzi data yako.\n0 Rudi',
     declined: 'Hujajiunga. Hakuna kilichohifadhiwa.',
     joined: 'Umejiunga na Stima Bridge.',
     menu: 'Stima Bridge\n1 Kopa\n2 Angalia deni\n3 Ripoti kukosa umeme\n4 Ondoka\n0 Toka',
@@ -63,6 +66,7 @@ const T = {
     leaveOwing: (ksh) => `Utaendelea kulipa KSh ${ksh} kupitia tokeni, lakini hutaweza kukopa.\n1 Ondoka\n0 Rudi`,
     smsTerms: 'Masharti ya Stima Bridge: ada 5%, mkopo mmoja kwa wakati, hadi 20% ya kila tokeni hulipa deni, hakuna riba. Tuma HELP kwa msaada.',
     smsToken: (t, kwh) => `TOKENI YA DEMO ${t} ya kWh ${kwh}. Haifanyi kazi kwenye mita halisi.`,
+    smsReceipt: (paid, repaid, kwh, owed) => `Tokeni KSh ${paid}: KSh ${repaid} zimelipa mkopo, kWh ${kwh} zimenunuliwa. Deni KSh ${owed}. DEMO`,
     bye: 'Kwaheri.',
   },
 };
@@ -89,7 +93,9 @@ export function buyToken(store, amountKsh) {
     a.owed -= repaid;
     if (a.owed === 0) a.repaid += 1;
   }
-  return { repaid, toUnits: amountKsh - repaid, kwh: (amountKsh - repaid) / RATES.lifeline };
+  const kwh = (amountKsh - repaid) / RATES.lifeline;
+  if (a) store.sms.push(T[store.lang || 'en'].smsReceipt(amountKsh, repaid, kwh.toFixed(1), a.owed));
+  return { repaid, toUnits: amountKsh - repaid, kwh };
 }
 
 export function session(store) {
@@ -104,6 +110,8 @@ export function session(store) {
   const menu = () => show('menu', t().menu);
   const hasActive = () => store.account && !store.account.left;
 
+  const termsScreen = () => show('terms', t().terms(LIMITS[LIMITS.length - 1]));
+
   const borrowScreen = () => {
     const a = store.account;
     if (a.owed > 0) return show('back', t().owing(a.owed));
@@ -116,18 +124,19 @@ export function session(store) {
     home(x) {
       if (x === '00') {
         if (hasActive()) return menu();
-        return store.lang ? show('intro', t().intro) : show('lang', T.en.lang);
+        return store.lang ? show('id', t().id) : show('lang', T.en.lang);
       }
       return x === '0' ? end(T[store.lang || 'en'].bye) : end(t().other);
     },
     lang(x) {
       if (x !== '1' && x !== '2') return show('lang', T.en.lang);
       store.lang = x === '1' ? 'en' : 'sw';
-      return show('intro', t().intro);
+      return show('id', t().id);
     },
-    intro(x) {
-      if (x === '1') return show('phone', t().phone);
-      return show('home', t().home);
+    id(x) {
+      if (!/^\d{7,8}$/.test(x)) return show('id', `${t().bad}\n${t().id}`);
+      draft.id = x;
+      return show('phone', t().phone);
     },
     phone(x) {
       if (!/^0[17]\d{8}$/.test(x)) return show('phone', `${t().bad}\n${t().phone}`);
@@ -137,20 +146,22 @@ export function session(store) {
     meter(x) {
       if (!/^\d{11}$/.test(x)) return show('meter', `${t().bad}\n${t().meter}`);
       draft.meter = x;
-      return show('id', t().id);
+      return termsScreen();
     },
-    id(x) {
-      if (!/^\d{7,8}$/.test(x)) return show('id', `${t().bad}\n${t().id}`);
-      draft.id = x;
-      store.sms.push(t().smsTerms);
-      return show('terms', t().terms(LIMITS[LIMITS.length - 1]));
+    doc1(x) {
+      return x === '1' ? show('doc2', t().privacyDoc) : termsScreen();
+    },
+    doc2() {
+      return termsScreen();
     },
     terms(x) {
+      if (x === '3') return show('doc1', t().termsDoc);
       if (x === '1') {
         const earlier = store.account;
         store.account = { phone: draft.phone, meter: draft.meter, id: draft.id, owed: earlier?.owed || 0, repaid: earlier?.repaid || 0, left: false };
         draft = {};
         state = 'menu';
+        store.sms.push(t().smsTerms);
         return { text: `${t().joined}\n\n${t().menu}`, end: false };
       }
       draft = {};
