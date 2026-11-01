@@ -144,8 +144,6 @@ function search(raw) {
 
 async function pollRecords() {
   const next = await loadRecords();
-  if (next.offline) return void ($('recordsNote').textContent = 'Records server is not running. Start the app with npm run serve.');
-  $('recordsNote').textContent = '';
   if (JSON.stringify(next) === JSON.stringify(records)) return;
   records = next;
   renderRecords();
@@ -234,7 +232,7 @@ async function start() {
     renderRecords();
   });
   $('clearRecords').addEventListener('click', async () => {
-    if (!window.confirm('Delete every user, report and token from data/records?')) return;
+    if (!window.confirm('Delete every user, report and token?')) return;
     await clearRecords();
     pollRecords();
   });

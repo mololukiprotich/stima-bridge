@@ -2,4 +2,6 @@ node_modules/
 data/train/
 data/test/
 data/records/
+.vercel/
 *.log
+.vercel

@@ -32,6 +32,8 @@ Then open http://localhost:4173/web/ for the dashboard and http://localhost:4173
 
 USSD records are saved by the local server as `data/records/users.csv`, `reports.csv` and `transactions.csv`. These files are not encrypted and are not committed, so use made-up details only.
 
+The Vercel demo is static, so it has no CSV files. Each visitor's records stay in their own browser.
+
 ## Testing rule
 
 Detector settings are tuned on the training set only. The test set uses a different seed and different household settings, and it is scored after tuning is fixed.

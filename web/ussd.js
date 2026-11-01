@@ -127,8 +127,8 @@ function paintAccount() {
 
 function persist() {
   savePhoneState();
-  saveRecords(store.records).then((ok) => {
-    $('saveStatus').textContent = ok ? 'Saved to data/records.' : 'Could not save. Start the app with npm run serve.';
+  saveRecords(store.records).then((where) => {
+    $('saveStatus').textContent = { csv: 'Saved to data/records.', browser: 'Saved in this browser only.' }[where] || 'Could not save.';
   });
 }
 
@@ -322,14 +322,13 @@ function autoDial() {
 async function refresh() {
   if (mode !== 'idle') return;
   const records = await loadRecords();
-  if (records.offline || mode !== 'idle') return;
+  if (mode !== 'idle') return;
   store = createStore({ ...records, currentId: store.records.currentId });
   seenSms = 0;
   paintAccount();
 }
 
 function start() {
-  if (saved.offline) $('saveStatus').textContent = 'Records server is not running. Start the app with npm run serve.';
   buildPads();
   tick();
   setInterval(tick, 10000);
